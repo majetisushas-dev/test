@@ -1,0 +1,37 @@
+name: App and Render container checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r backend/requirements.txt -r backend/requirements-sip.txt
+      - run: python -m unittest discover -s tests -v
+      - run: node tests/dashboard-smoke.cjs
+      - name: Build the Render voice image
+        run: docker build -f Dockerfile.voice -t vaani-render-check .
+      - name: Verify container startup and Render PORT
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name vaani-check -p 18080:10000 -e PORT=10000 -e VAANI_BOOTSTRAP_PASSWORD=ci-only-bootstrap-password -e VAANI_SECRET_KEY=ci-only-secret-not-for-deployment vaani-render-check
+          trap 'docker logs vaani-check; docker rm -f vaani-check' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/health; then
+              curl --fail --silent http://127.0.0.1:18080/ | grep -q 'Vaani'
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1

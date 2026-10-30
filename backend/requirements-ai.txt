@@ -1,0 +1,5 @@
+-r requirements.txt
+faster-whisper>=1.1,<2.0
+webrtcvad-wheels>=2.0.14
+piper-tts[http]>=1.8,<2.0
+

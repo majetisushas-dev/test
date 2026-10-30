@@ -1,0 +1,48 @@
+# Create from https://dashboard.render.com/select-repo?type=blueprint
+# This configuration uses a PAID always-on plan and persistent disk.
+services:
+  - type: web
+    name: vaani-testing
+    runtime: docker
+    plan: standard
+    branch: main
+    dockerfilePath: ./Dockerfile.voice
+    dockerContext: .
+    healthCheckPath: /health
+    disk:
+      name: vaani-testing-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: VAANI_ENVIRONMENT
+        value: testing
+      - key: VAANI_DATABASE_URL
+        value: sqlite:////data/vaani.db
+      - key: VAANI_SECRET_KEY
+        generateValue: true
+      - key: VAANI_BOOTSTRAP_PASSWORD
+        generateValue: true
+      - key: VAANI_TELEPHONY_PROVIDER
+        value: livekit_sip
+      - key: VAANI_SIP_ENABLED
+        value: "false"
+      - key: VAANI_ENABLE_OUTBOUND_CALLS
+        value: "false"
+      - key: VAANI_MAX_CALL_SECONDS
+        value: "900"
+      - key: VAANI_CALL_START_HOUR
+        value: "9"
+      - key: VAANI_CALL_END_HOUR
+        value: "20"
+      - key: OLLAMA_MODEL
+        value: qwen3:4b
+      - key: OLLAMA_BASE_URL
+        value: http://127.0.0.1:11434
+      - key: STT_MODEL_PATH
+        value: /data/models/faster-whisper-small
+      - key: STT_DEVICE
+        value: cpu
+      - key: STT_COMPUTE_TYPE
+        value: int8
+      - key: PIPER_MODEL_PATH
+        value: /data/models/piper/en_US-lessac-medium.onnx

@@ -1,0 +1,4 @@
+# Optional LiveKit SIP voice bridge; keep the web-only dashboard lightweight.
+livekit>=1.0,<2.0
+livekit-api>=1.0,<2.0
+webrtcvad-wheels>=2.0.14,<3

@@ -1,0 +1,9 @@
+-r requirements-ai.txt
+# VibeVoice support in Transformers. Install only on the machine that will host
+# the local model; PyTorch and model weights can require substantial disk/RAM/VRAM.
+transformers>=5.0.0,<6.0.0
+accelerate>=1.0.0
+diffusers>=0.30.0
+soundfile>=0.12.0
+torch>=2.6,<3.0
+

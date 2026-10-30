@@ -1,0 +1,15 @@
+services:
+  vaani:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      VAANI_DATABASE_URL: sqlite:////data/vaani.db
+      VAANI_SECRET_KEY: ${VAANI_SECRET_KEY:?Set VAANI_SECRET_KEY in your environment}
+      VAANI_BOOTSTRAP_PASSWORD: ${VAANI_BOOTSTRAP_PASSWORD:-change-me-now}
+    volumes:
+      - vaani-data:/data
+
+volumes:
+  vaani-data:
+
