@@ -113,17 +113,16 @@ This new SIP bridge handles outbound calls; inbound SIP routing is not implement
 
 ## 3. Apply this update to Render
 
-1. Extract the supplied archive. Copy its source files into your existing repo,
-   preserving private configuration and the persistent database. Commit/push the
-   update yourself; the GitHub connection in this session has read-only access.
-   Alternatively, apply the supplied patch at the repository root using
-   `git apply --check vaani-redesign.patch` followed by `git apply vaani-redesign.patch`.
+1. Connect `https://github.com/majetisushas-dev/test` on branch `main` to Render.
+   The redesigned source has been pushed to this repository. Use the included
+   `render.yaml` Blueprint for the `vaani-testing` service, or follow the
+   [step-by-step Render guide](render.md). Review the paid plan before applying.
 2. For the dashboard alone, keep the default `Dockerfile`. For live local Whisper
    inference and Piper CLI support, select **`Dockerfile.voice`** in the Render
    service's Dockerfile Path setting. This installs the optional model runtimes.
 3. Keep the persistent disk mounted at `/data` and SQLite at
    `sqlite:////data/vaani.db` (or preserve your PostgreSQL configuration). Put the
-   model weights on persistent storage; they are not bundled in the archive.
+   model weights on persistent storage; they are not bundled in the image.
 4. Configure the environment variables in Render and redeploy. Confirm that your
    host allows the WebRTC media paths needed to reach LiveKit; HTTPS alone does
    not prove audio connectivity. Use another always-on worker host if required.
