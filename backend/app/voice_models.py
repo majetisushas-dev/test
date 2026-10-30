@@ -24,7 +24,9 @@ class ModelUnavailable(RuntimeError):
 class LocalVoiceModels:
     """Thin adapters for a local Ollama server, faster-whisper, and Piper CLI."""
 
-    def __init__(self) -> None:
+    def __init__(self, remote: bool = True) -> None:
+        self.runtime_url = os.getenv("VAANI_VOICE_RUNTIME_URL", "").rstrip("/") if remote else ""
+        self.runtime_token = os.getenv("VAANI_VOICE_RUNTIME_TOKEN", "") if remote else ""
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "")
         self.stt_path = Path(os.getenv("STT_MODEL_PATH", "models/faster-whisper-small")).resolve()
@@ -40,6 +42,15 @@ class LocalVoiceModels:
         self._vibevoice_lock = threading.Lock()
 
     async def status(self) -> dict[str, Any]:
+        if self.runtime_url:
+            try:
+                result = await self._runtime_request("GET", "/status", timeout=6)
+                return {**result.json(), "connection": {"mode": "remote", "available": True}}
+            except ModelUnavailable:
+                return {"connection": {"mode": "remote", "available": False},
+                        "llm": {"available": False, "model_available": False, "model": None},
+                        "stt": {"available": False}, "tts": {"available": False},
+                        "microsoft_vibevoice": {"available": False}}
         ollama = {"configured": bool(self.ollama_model), "available": False, "model": self.ollama_model or None, "base_url": self.ollama_url}
         try:
             async with httpx.AsyncClient(timeout=2.5) as client:
@@ -58,6 +69,7 @@ class LocalVoiceModels:
         except httpx.HTTPError:
             pass
         return {
+            "connection": {"mode": "local", "available": True},
             "llm": ollama,
             "stt": {"available": importlib.util.find_spec("faster_whisper") is not None and self.stt_path.is_dir(), "runtime": "faster-whisper", "model_path": str(self.stt_path), "device": self.stt_device},
             "tts": {"available": piper_http or (bool(piper) and self.piper_model.is_file()), "runtime": "Piper", "http_available": piper_http, "http_url": self.piper_url, "binary": piper, "model_path": str(self.piper_model)},
@@ -137,6 +149,8 @@ class LocalVoiceModels:
     async def transcribe(self, audio: bytes, filename: str = "audio.wav") -> dict[str, Any]:
         if not audio:
             raise ValueError("Audio file is empty")
+        if self.runtime_url:
+            return (await self._runtime_request("POST", "/transcribe", files={"audio": (filename, audio)})).json()
 
         def work():
             model = self._load_whisper()
@@ -154,12 +168,16 @@ class LocalVoiceModels:
         return await asyncio.to_thread(work)
 
     async def reply(self, user_text: str, system_prompt: str, history: list[dict[str, str]] | None = None) -> str:
+        if self.runtime_url:
+            result = await self._runtime_request("POST", "/reply", json={"text": user_text, "system_prompt": system_prompt, "history": (history or [])[-20:]})
+            return result.json()["answer"]
         if not self.ollama_model:
             raise ModelUnavailable("Set OLLAMA_MODEL to a locally available Ollama model.")
         if not user_text.strip():
             raise ValueError("Transcript is empty")
         payload = {
             "model": self.ollama_model,
+            "think": False,
             "stream": False,
             "messages": [
                 {"role": "system", "content": system_prompt or "You are a concise, helpful voice assistant. Reply in the caller's language."},
@@ -179,6 +197,8 @@ class LocalVoiceModels:
     async def synthesize(self, text: str) -> bytes:
         if not text.strip():
             raise ValueError("Text to synthesize is empty")
+        if self.runtime_url:
+            return (await self._runtime_request("POST", "/synthesize", json={"text": text})).content
         try:
             async with httpx.AsyncClient(timeout=60) as client:
                 response = await client.post(f"{self.piper_url}/synthesize", json={"text": text})
@@ -203,6 +223,19 @@ class LocalVoiceModels:
                 return output_path.read_bytes()
 
         return await asyncio.to_thread(work)
+
+    async def _runtime_request(self, method: str, path: str, timeout: float = 120, **kwargs):
+        if not self.runtime_token:
+            raise ModelUnavailable("Set VAANI_VOICE_RUNTIME_TOKEN for the remote voice server")
+        if not self.runtime_url.startswith("https://") and not os.getenv("VAANI_ALLOW_INSECURE_RUNTIME", "false").lower() == "true":
+            raise ModelUnavailable("Remote voice server requires HTTPS; HTTP is allowed only with the explicit local-development setting")
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                result = await client.request(method, self.runtime_url + path, headers={"X-Voice-Runtime-Token": self.runtime_token}, **kwargs)
+                result.raise_for_status()
+            return result
+        except httpx.HTTPError as exc:
+            raise ModelUnavailable("Voice server is unavailable or rejected the request. Check its URL, token and model setup.") from exc
 
     async def run_voice_test(self, audio: bytes, filename: str, system_prompt: str) -> dict[str, Any]:
         started = time.perf_counter()

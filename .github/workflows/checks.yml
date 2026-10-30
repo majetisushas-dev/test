@@ -21,6 +21,8 @@ jobs:
       - run: node tests/dashboard-smoke.cjs
       - name: Build the Render voice image
         run: docker build -f Dockerfile.voice -t vaani-render-check .
+      - name: Validate own-server Compose configuration
+        run: VAANI_VOICE_RUNTIME_TOKEN=ci-only-token docker compose -f docker-compose.voice.yml config --quiet
       - name: Verify container startup and Render PORT
         shell: bash
         run: |

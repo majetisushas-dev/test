@@ -475,6 +475,14 @@ async def hangup_call(call_id: int, user: User = Depends(require_editor), db: Se
     return {"id": call.id, "status": call.status}
 
 
+@app.get("/api/calls/{call_id}")
+def call_detail(call_id: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
+    call = org_query(CallRecord, user, db, call_id)
+    return {"id": call.id, "phone": call.phone, "status": call.status,
+            "outcome": call.outcome, "duration_seconds": call.duration_seconds,
+            "transcript": call.transcript, "created_at": call.created_at.isoformat()}
+
+
 @app.get("/api/analytics/summary")
 def analytics(user: User = Depends(current_user), db: Session = Depends(db_session)):
     calls = db.scalars(select(CallRecord).where(CallRecord.organization_id == user.organization_id)).all()

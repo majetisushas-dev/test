@@ -1,5 +1,7 @@
 # Vaani · AI Voice Calling & IVR Platform
 
+**Own-server setup:** [Complete model, audio-test, and phone-calling walkthrough](docs/end-to-end.md). Open **Setup & voice test** in the app to follow the same flow.
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/majetisushas-dev/test)
 
 **Repository:** `majetisushas-dev/test` · **Testing service:** `vaani-testing`.
