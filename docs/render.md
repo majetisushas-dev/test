@@ -32,6 +32,8 @@ or start command override is needed. Keep a single Uvicorn worker.
 
 ## Enable voice calling after deployment
 
+For models running on your own computer/server, use the [end-to-end guide](end-to-end.md). The default lightweight Dockerfile can connect to that authenticated runtime, so local Whisper weights are not required on Render in remote mode. The steps below describe the alternative with inference on the Render voice container.
+
 1. Open the Render service's Shell and run:
 
    ```sh

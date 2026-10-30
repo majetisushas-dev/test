@@ -1,0 +1,67 @@
+# Run the inference stack on your own always-on machine; no paid resources created.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+  ollama-init:
+    image: ollama/ollama:latest
+    entrypoint: /bin/sh
+    command: ["-c", "until ollama list; do sleep 2; done; ollama pull $${OLLAMA_MODEL}"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+    depends_on:
+      - ollama
+  model-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.voice
+    command: ["python", "/app/scripts/download-models.py"]
+    environment:
+      STT_MODEL_PATH: /data/models/faster-whisper-small
+      PIPER_MODEL_PATH: /data/models/piper/en_US-lessac-medium.onnx
+    volumes:
+      - voice-models:/data
+  runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.voice
+    command: ["uvicorn", "app.runtime:app", "--host", "0.0.0.0", "--port", "8090"]
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      VAANI_VOICE_RUNTIME_TOKEN: ${VAANI_VOICE_RUNTIME_TOKEN:?Set a private runtime token}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      STT_MODEL_PATH: /data/models/faster-whisper-small
+      PIPER_MODEL_PATH: /data/models/piper/en_US-lessac-medium.onnx
+    volumes:
+      - voice-models:/data
+    depends_on:
+      model-init:
+        condition: service_completed_successfully
+      ollama-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  https:
+    image: caddy:2
+    profiles: [public]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VOICE_DOMAIN: ${VOICE_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile.voice:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - runtime
+    restart: unless-stopped
+volumes:
+  ollama-models:
+  voice-models:
+  caddy-data:
+  caddy-config:
